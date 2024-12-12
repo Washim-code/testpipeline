@@ -1,4 +1,4 @@
-name: Push-to-EC2
+name: Deploy Node.js Express App to EC2
 
 # Trigger deployment only on push to main branch
 on:
@@ -8,13 +8,15 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to EC2 on master branch push
+    name: Deploy to EC2 on push to main branch
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout the files
+      # Checkout the repository
+      - name: Checkout code
         uses: actions/checkout@v2
 
+      # Set up SSH keys and deploy to EC2 using SSH
       - name: Deploy to Server 1
         uses: easingthemes/ssh-deploy@main
         env:
@@ -23,16 +25,36 @@ jobs:
           REMOTE_USER: ${{ secrets.USERNAME }}
           TARGET: ${{ secrets.TARGET_DIR }}
 
-      - name: Executing remote ssh commands using ssh key
-        uses: appleboy/ssh-action@master
+      # Install Node.js and dependencies on EC2
+      - name: Execute remote ssh commands using ssh key
+        uses: appleboy/ssh-action@v0.1.5
         with:
           host: ${{ secrets.HOST_DNS }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            sudo apt-get -y update
-            sudo apt-get install -y apache2
-            sudo systemctl start apache2
-            sudo systemctl enable apache2
-            cd home
-            sudo mv * /var/www/html
+            # Update and install required packages
+            sudo apt-get update -y
+            sudo apt-get install -y nodejs npm git
+            
+            # Navigate to your app directory (assuming TARGET_DIR points to app folder)
+            cd ${{ secrets.TARGET_DIR }}
+            
+            # Install Node.js dependencies
+            npm install
+
+            # Optional: Install pm2 for process management
+            sudo npm install -g pm2
+
+            # Start your Express app using pm2
+            pm2 start app.js --name "express-api"
+
+            # Optionally, you can configure pm2 to start on boot
+            pm2 startup
+            pm2 save
+
+            # (Optional) Setup Nginx as reverse proxy if you want to use Nginx
+            # sudo apt-get install -y nginx
+            # sudo cp /etc/nginx/sites-available/default /etc/nginx/sites-available/default.backup
+            # sudo bash -c 'echo "server { listen 80; location / { proxy_pass http://localhost:3000; } }" > /etc/nginx/sites-available/default'
+            # sudo systemctl restart nginx
