@@ -1,4 +1,4 @@
-name: Deploy Node.js Express App to EC2
+name: Deploy Node.js Express App to EC2 with Nginx
 
 # Trigger deployment only on push to main branch
 on:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to EC2 on push to main branch
+    name: Deploy
     runs-on: ubuntu-latest
 
     steps:
@@ -16,7 +16,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      # Set up SSH keys and deploy to EC2 using SSH
+      # Deploy to EC2 using SSH
       - name: Deploy to Server 1
         uses: easingthemes/ssh-deploy@main
         env:
@@ -25,7 +25,7 @@ jobs:
           REMOTE_USER: ${{ secrets.USERNAME }}
           TARGET: ${{ secrets.TARGET_DIR }}
 
-      # Install Node.js and dependencies on EC2
+      # Execute SSH commands to install dependencies and configure the app
       - name: Execute remote ssh commands using ssh key
         uses: appleboy/ssh-action@v0.1.5
         with:
@@ -35,26 +35,49 @@ jobs:
           script: |
             # Update and install required packages
             sudo apt-get update -y
-            sudo apt-get install -y nodejs npm git
-            
-            # Navigate to your app directory (assuming TARGET_DIR points to app folder)
+            sudo apt-get install -y nodejs npm git nginx
+
+            # Install PM2 for process management
+            sudo npm install -g pm2
+
+            # Navigate to your app directory
             cd ${{ secrets.TARGET_DIR }}
-            
+
             # Install Node.js dependencies
             npm install
 
-            # Optional: Install pm2 for process management
-            sudo npm install -g pm2
-
-            # Start your Express app using pm2
+            # Start the Node.js app using PM2
             pm2 start app.js --name "express-api"
 
-            # Optionally, you can configure pm2 to start on boot
-            pm2 startup
+            # Save the PM2 process list
             pm2 save
 
-            # (Optional) Setup Nginx as reverse proxy if you want to use Nginx
-            # sudo apt-get install -y nginx
-            # sudo cp /etc/nginx/sites-available/default /etc/nginx/sites-available/default.backup
-            # sudo bash -c 'echo "server { listen 80; location / { proxy_pass http://localhost:3000; } }" > /etc/nginx/sites-available/default'
-            # sudo systemctl restart nginx
+            # Ensure PM2 starts on boot
+            pm2 startup
+
+            # Configure Nginx as a reverse proxy for the Node.js app
+            sudo bash -c 'cat > /etc/nginx/sites-available/express-api <<EOF
+            server {
+                listen 80;
+                server_name ${REMOTE_HOST};
+
+                location / {
+                    proxy_pass http://localhost:3000;  # Assuming your Express app runs on port 3000
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade $http_upgrade;
+                    proxy_set_header Connection 'upgrade';
+                    proxy_set_header Host $host;
+                    proxy_cache_bypass $http_upgrade;
+                }
+            }
+            EOF'
+
+            # Enable the Nginx configuration
+            sudo ln -s /etc/nginx/sites-available/express-api /etc/nginx/sites-enabled/
+
+            # Test Nginx configuration and restart the service
+            sudo nginx -t
+            sudo systemctl restart nginx
+
+            # Optional: Ensure Nginx starts on boot
+            sudo systemctl enable nginx
