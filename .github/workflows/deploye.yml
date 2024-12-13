@@ -20,18 +20,18 @@ jobs:
       - name: Deploy to Server 1
         uses: easingthemes/ssh-deploy@main
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
-          REMOTE_HOST: ${{ secrets.HOST_DNS }}
-          REMOTE_USER: ${{ secrets.USERNAME }}
-          TARGET: ${{ secrets.TARGET_DIR }}
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}  # Ensure this secret is set
+          REMOTE_HOST: ${{ secrets.HOST_DNS }}        # Ensure this secret is set
+          REMOTE_USER: ${{ secrets.USERNAME }}         # Ensure this secret is set
+          TARGET: ${{ secrets.TARGET_DIR }}            # Ensure this secret is set
 
       # Install Node.js and dependencies on EC2
       - name: Execute remote ssh commands using ssh key
         uses: appleboy/ssh-action@v0.1.5
         with:
-          host: ${{ secrets.HOST_DNS }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          host: ${{ secrets.HOST_DNS }}               # Ensure this secret is set
+          username: ${{ secrets.USERNAME }}           # Ensure this secret is set
+          key: ${{ secrets.EC2_SSH_KEY }}             # Ensure this secret is set
           script: |
             # Update and install required packages
             sudo apt-get update -y
@@ -43,11 +43,8 @@ jobs:
             # Install Node.js dependencies
             npm install
 
-            # Optional: Install pm2 for process management
-            sudo npm install -g pm2
-
             # Start your Express app using pm2
-            pm2 start app.js --name "express-api"
+            pm2 start index.js --name "express-api"
 
             # Optionally, you can configure pm2 to start on boot
             pm2 startup
