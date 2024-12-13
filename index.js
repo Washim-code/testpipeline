@@ -23,7 +23,7 @@ const connect = () =>{
 // Routes
 
 app.get("/",(req, res)=>{
-    res.status(200).json({message: "okay washim 1"})
+    res.status(200).json({message: "okay washim 2"})
 })
 
 app.use((err, req, res, next) => {
